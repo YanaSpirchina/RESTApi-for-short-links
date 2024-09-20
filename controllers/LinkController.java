@@ -10,10 +10,7 @@ import test.spring.restapi.services.LinkService;
 import test.spring.restapi.util.LinkErrorResponse;
 import test.spring.restapi.util.LinkIsExpiredException;
 import test.spring.restapi.util.LinkNotFoundException;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import test.spring.restapi.util.LinksTooManyRequestsException;
 
 @RestController
 @RequestMapping("/api")
@@ -35,7 +32,7 @@ public class LinkController {
             return new ResponseEntity<>(linkResponse, HttpStatus.FOUND);
         }
 
-        String hash = generateHashForShortLink(linkResponseDTO.getName());
+        String hash = linkService.generateHashForShortLink(linkResponseDTO.getName());
 
         linkResponse = new LinkResponse();
         linkService.generateLinkResponse(linkResponse, linkResponseDTO.getName(), hash);
@@ -77,21 +74,14 @@ public class LinkController {
                 new LinkErrorResponse("link is expired!", System.currentTimeMillis());
 
         return new ResponseEntity<>(linkErrorResponse, HttpStatus.BANDWIDTH_LIMIT_EXCEEDED);
-
     }
 
-    private String generateHashForShortLink(String link) {
-        MessageDigest digest;
+    @ExceptionHandler
+    private ResponseEntity<LinkErrorResponse> handleException(LinksTooManyRequestsException e) {
+        LinkErrorResponse linkErrorResponse =
+                new LinkErrorResponse("Too many concurrent requests, please try again later!",
+                        System.currentTimeMillis());
 
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-
-        byte[] hash = digest.digest(link.getBytes());
-
-        return Base64.getEncoder().encodeToString(hash).substring(0, 6);
+        return new ResponseEntity<>(linkErrorResponse, HttpStatus.TOO_MANY_REQUESTS);
     }
-
 }
