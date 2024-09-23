@@ -2,7 +2,6 @@ package test.spring.restapi.services;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import test.spring.restapi.models.LinkResponse;
@@ -28,10 +27,9 @@ public class LinkService {
 
     final private RedisTemplate<String, String> redisTemplate;
 
-    private static final String SEMAPHORE_KEY = "";
-    private static final String SEMAPHORE_COUNTER_KEY = "semaphore_counter";
-    private static final int MAX_PERMITS = 100;
-    private static final long TTL_MINUTES = 10;
+    private static final String SEMAPHORE_KEY = "semaphore_key";
+    private static final int MAX_PERMITS = 2;
+    private static final long TTL_MINUTES = 1;
 
     public LinkService(LinkRepository linkRepository, RedisTemplate<String, String> redisTemplate) {
         this.linkRepository = linkRepository;
@@ -62,7 +60,11 @@ public class LinkService {
     }
 
     public LinkResponse findByShortName(String shortName) {
-        return linkRepository.findByShortName(shortName).orElse(null);
+        Optional<LinkResponse> linkResponse = linkRepository.findByShortName(shortName);
+        if (linkResponse.isEmpty()) {
+            throw new LinkNotFoundException();
+        }
+        return linkResponse.get();
     }
 
     public void generateLinkResponse(LinkResponse linkResponse, String fullName, String hash) {
@@ -109,23 +111,11 @@ public class LinkService {
         setOperations.add(SEMAPHORE_KEY, uniqueKey);
         redisTemplate.expire(SEMAPHORE_KEY, TTL_MINUTES, TimeUnit.MINUTES);
 
-        ValueOperations<String, String> valueOperations = redisTemplate.opsForValue();
-
-        if (valueOperations.get(SEMAPHORE_COUNTER_KEY) == null) {
-            valueOperations.set(SEMAPHORE_COUNTER_KEY, "0");
-        }
-
-        valueOperations.increment(SEMAPHORE_COUNTER_KEY, 1L);
-
         return true;
     }
 
     private void releasePermit() {
         SetOperations<String, String> setOperations = redisTemplate.opsForSet();
-        ValueOperations<String, String> valueOperations = redisTemplate.opsForValue();
-
         setOperations.remove(SEMAPHORE_KEY, "1");
-
-        valueOperations.decrement(SEMAPHORE_COUNTER_KEY, 1L);
     }
 }
