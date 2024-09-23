@@ -28,8 +28,8 @@ public class LinkService {
     final private RedisTemplate<String, String> redisTemplate;
 
     private static final String SEMAPHORE_KEY = "semaphore_key";
-    private static final int MAX_PERMITS = 2;
-    private static final long TTL_MINUTES = 1;
+    private static final int MAX_PERMITS = 100;
+    private static final long TTL_MINUTES = 10;
 
     public LinkService(LinkRepository linkRepository, RedisTemplate<String, String> redisTemplate) {
         this.linkRepository = linkRepository;
